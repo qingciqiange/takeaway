@@ -13,5 +13,8 @@ urlpatterns = [
     url(r'^login/',views.login,name='login'),
     url(r'^checkuser/',views.check_user,name='check_user'),
 
-    url(r'^logout/',views.logout,name='logout')
+    url(r'^logout/',views.logout,name='logout'),
+
+    url(r'^activate',views.activate,name='activate'),
+
 ]

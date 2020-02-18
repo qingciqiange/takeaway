@@ -1,10 +1,15 @@
+import uuid
+
 from django.contrib.auth.hashers import make_password,check_password
+from django.core.cache import cache
+from django.core.mail import send_mail
 from django.http import HttpResponse,JsonResponse
 from django.shortcuts import render, redirect
+from django.template import loader
 from django.urls import reverse
 # Create your views here.
 from App.models import MainWheel, MainNav, MainMustBuy, MainShop, MainShow, FoodType, Goods, AXFUser
-from App.views_helper import hash_str
+from App.views_helper import hash_str, send_email_activate
 from aixianfeng.settings import MEDIA_KEY_PREFIX
 
 
@@ -131,14 +136,27 @@ def register(request):
 
         user.save()
 
+        u_token = uuid.uuid4().hex
+
+        cache.set(u_token,user.id,timeout=60*60*24)
+
+        send_email_activate(username,email,u_token)
+
         return redirect(reverse('axf:login'))
 
 
 def login(request):
     if request.method == 'GET':
+
+        error_message = request.session.get('error_message')
+
         data = {
             'title':'登录'
         }
+        if error_message:
+            del request.session['error_message']
+            data['error_message'] = error_message
+
         return render(request,'user/login.html',context=data)
 
     elif request.method == 'POST':
@@ -152,12 +170,21 @@ def login(request):
 
             if check_password(password,user.u_password):
 
-                request.session['user_id'] =user.id
-                return redirect(reverse('axf:mine'))
+                if user.is_active:
+
+                    request.session['user_id'] =user.id
+                    return redirect(reverse('axf:mine'))
+
+                else:
+                    print('not activate')
+                    request.session['error_message'] = 'not activate'
+                    redirect(reverse('axf:login'))
             else:
                 print('密码错误')
+                request.session['error_message'] = 'password error'
                 return redirect(reverse('axf:login'))
         print('用户不存在')
+        request.session['error_message'] = 'user does not exist'
         return redirect(reverse('axf:login'))
 
 
@@ -181,3 +208,17 @@ def logout(request):
 
     request.session.flush()
     return redirect(reverse('axf:mine'))
+
+
+def activate(request):
+    u_token = request.GET.get('u_token')
+    user_id = cache.get(u_token)
+    if user_id:
+
+        cache.delete(u_token)
+
+        user = AXFUser.objects.get(pk=user_id)
+        user.is_active = True
+        user.save()
+        return redirect(reverse('axf:login'))
+    return render(request,'user/activate_fail.html')
