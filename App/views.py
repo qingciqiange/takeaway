@@ -8,8 +8,9 @@ from django.shortcuts import render, redirect
 from django.template import loader
 from django.urls import reverse
 # Create your views here.
-from App.models import MainWheel, MainNav, MainMustBuy, MainShop, MainShow, FoodType, Goods, AXFUser
-from App.views_helper import hash_str, send_email_activate
+from App.models import MainWheel, MainNav, MainMustBuy, MainShop, MainShow, FoodType, Goods, AXFUser, Cart, Order, \
+    OrderGoods
+from App.views_helper import hash_str, send_email_activate, get_total_price
 from aixianfeng.settings import MEDIA_KEY_PREFIX
 
 
@@ -97,7 +98,19 @@ def market_with_params(request,typeid,childcid,order_rule):
     return render(request,'main/market.html',context=data)
 
 def cart(request):
-    return render(request,'main/cart.html')
+
+    carts = Cart.objects.filter(c_user=request.user)
+
+    is_all_select = not carts.filter(c_is_select=False).exists()
+
+    data = {
+        'title':'购物车',
+        'carts':carts,
+        'is_all_select': is_all_select,
+        'total_price': get_total_price(),
+    }
+
+    return render(request,'main/cart.html',context=data)
 
 def mine(request):
 
@@ -222,3 +235,147 @@ def activate(request):
         user.save()
         return redirect(reverse('axf:login'))
     return render(request,'user/activate_fail.html')
+
+
+def add_to_cart(request):
+
+    goodsid = request.GET.get('goodsid')
+
+    carts = Cart.objects.filter(c_user=request.user).filter(c_goods_id=goodsid)
+
+    if carts.exists():
+        cart_obj = carts.first()
+        cart_obj.c_goods_num = cart_obj.c_goods_num + 1
+    else:
+        cart_obj = Cart()
+        cart_obj.c_goods_id = goodsid
+        cart_obj.c_user = request.user
+    cart_obj.save()
+    data = {
+        'status':200,
+        'msg':'add_success',
+        'c_goods_num': cart_obj.c_goods_num
+    }
+
+    return JsonResponse(data=data)
+
+
+def sub_to_cart(request):
+    goodsid = request.GET.get('goodsid')
+
+    carts = Cart.objects.filter(c_user=request.user).filter(c_goods_id=goodsid)
+
+    if carts.exists():
+        cart_obj = carts.first()
+        if cart_obj.c_goods_num > 0:
+            cart_obj.c_goods_num = cart_obj.c_goods_num - 1
+    else:
+        cart_obj = Cart()
+        cart_obj.c_goods_id = goodsid
+        cart_obj.c_user = request.user
+    cart_obj.save()
+    data = {
+        'status': 200,
+        'msg': 'sub_success',
+        'c_goods_num': cart_obj.c_goods_num
+    }
+
+    return JsonResponse(data=data)
+
+
+def change_cart_state(request):
+
+    cart_id =request.GET.get('cartid')
+    cart_obj = Cart.objects.get(pk = cart_id)
+    cart_obj.c_is_select =not cart_obj.c_is_select
+    cart_obj.save()
+
+    is_all_select = not Cart.objects.filter(c_user=request.user).filter(c_is_select=False).exists()
+
+    data = {
+        'status':200,
+        'msg':'change ok',
+        'c_is_select':cart_obj.c_is_select,
+        'is_all_select':is_all_select,
+        'total_price': get_total_price(),
+    }
+
+    return JsonResponse(data=data)
+
+
+def sub_shopping(request):
+    cartid = request.GET.get('cartid')
+    cart_obj = Cart.objects.get(pk=cartid)
+
+    data = {
+        'status':200,
+        'msg':'ok',
+    }
+
+    if cart_obj.c_goods_num > 1:
+        cart_obj.c_goods_num = cart_obj.c_goods_num - 1
+        cart_obj.save()
+        data['c_goods_num'] =cart_obj.c_goods_num
+    else:
+        cart_obj.delete()
+        data['c_goods_num'] = 0
+        data['total_price'] = get_total_price()
+    return JsonResponse(data=data)
+
+
+def all_select(request):
+
+    cart_list = request.GET.get('cart_list')
+    cart_list =cart_list.split('#')
+
+    carts = Cart.objects.filter(id__in = cart_list)
+
+    for cart_obj in carts:
+        cart_obj.c_is_select = not cart_obj.c_is_select
+        cart_obj.save()
+
+    data = {
+        'status':200,
+        'msg':'ok',
+        'total_price': get_total_price(),
+    }
+
+    return JsonResponse(data=data)
+
+
+def make_order(request):
+
+    carts =Cart.objects.filter(c_user=request.user).filter(c_is_select = True)
+    order = Order()
+    order.o_user =request.user
+    order.o_price = get_total_price()
+    order.save()
+
+    for cart_obj in carts:
+        ordergoods = OrderGoods()
+        ordergoods.o_order = order
+        ordergoods.o_goods_num = cart_obj.c_goods_num
+        ordergoods.o_goods = cart_obj.c_goods
+        ordergoods.save()
+        cart_obj.delete()
+
+    data = {
+        'status':200,
+        'msg':'ok',
+        'order_id':order.id,
+    }
+
+    return JsonResponse(data)
+
+
+def order_detail(request):
+
+    order_id = request.GET.get('orderid')
+    order = Order.objects.get(pk=order_id)
+
+    data = {
+        'title':'订单详情',
+        'order':order,
+    }
+
+    return render(request,'order/order_detail.html',context=data)

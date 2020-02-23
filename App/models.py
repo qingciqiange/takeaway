@@ -114,3 +114,31 @@ class AXFUser(models.Model):
 
     class Meta:
         db_table = 'axf_user'
+
+class Cart(models.Model):
+
+    c_user = models.ForeignKey(AXFUser)
+    c_goods = models.ForeignKey(Goods)
+
+    c_goods_num = models.IntegerField(default=1)
+    c_is_select = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'axf_cart'
+
+class Order(models.Model):
+    o_user = models.ForeignKey(AXFUser)
+    o_price= models.FloatField(default=0)
+    o_time = models.DateTimeField(auto_now=True)
+    o_status = models.IntegerField(default=1)
+
+    class Meta:
+        db_table = 'axf_order'
+
+class OrderGoods(models.Model):
+    o_order = models.ForeignKey(Order)
+    o_goods = models.ForeignKey(Goods)
+    o_goods_num = models.IntegerField(default=1)
+
+    class Meta:
+        db_table = 'axf_ordergoods'

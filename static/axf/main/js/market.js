@@ -82,4 +82,36 @@ $(function () {
 
     })
 
+    $(".subShopping").click(function () {
+        console.log('sub');
+
+        var $sub = $(this);
+        var $goodsid = $sub.attr('goodsid');
+        $.get('/axf/subtocart/',{'goodsid':$goodsid},function (data) {
+            console.log(data);
+
+            if (data['status'] === 302) {
+                window.open('/axf/login', target = '_self');
+            } else if (data['status'] === 200) {
+                $sub.next('span').html(data['c_goods_num']);
+            }
+        })
+    })
+
+    $(".addShopping").click(function () {
+        console.log('add');
+
+        var $add = $(this);
+        var $goodsid = $add.attr('goodsid');
+        $.get('/axf/addtocart/',{'goodsid':$goodsid},function (data) {
+            console.log(data);
+
+            if (data['status'] === 302){
+                window.open('/axf/login',target='_self');
+            }else if (data['status'] === 200){
+                $add.prev('span').html(data['c_goods_num']);
+            }
+        })
+    })
 })
+
