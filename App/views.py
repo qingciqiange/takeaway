@@ -10,6 +10,7 @@ from django.urls import reverse
 # Create your views here.
 from App.models import MainWheel, MainNav, MainMustBuy, MainShop, MainShow, FoodType, Goods, AXFUser, Cart, Order, \
     OrderGoods
+from App.views_constant import ORDER_STATUS_NOT_PAY, ORDER_STATUS_NOT_RECEIVE, ORDER_STATUS_NOT_SEND
 from App.views_helper import hash_str, send_email_activate, get_total_price
 from aixianfeng.settings import MEDIA_KEY_PREFIX
 
@@ -124,6 +125,9 @@ def mine(request):
         data['is_login'] = True
         data['username'] = user.u_username
         data['icon'] = MEDIA_KEY_PREFIX + user.u_icon.url
+        data['order_not_pay'] = Order.objects.filter(o_user=user).filter(o_status=ORDER_STATUS_NOT_PAY).count()
+        data['order_not_receive'] = Order.objects.filter(o_user=user).filter(o_status__in=[ORDER_STATUS_NOT_RECEIVE,ORDER_STATUS_NOT_SEND]).count()
+
     return render(request,'main/mine.html',context=data)
 
 def register(request):
@@ -379,3 +383,33 @@ def order_detail(request):
     }
 
     return render(request,'order/order_detail.html',context=data)
+
+
+def order_list_not_pay(request):
+
+    orders = Order.objects.filter(o_user =request.user).filter(o_status=ORDER_STATUS_NOT_PAY)
+
+    data = {
+        'title':'订单列表',
+        'orders':orders,
+    }
+
+    return render(request,'order/order_list_not_pay.html',context=data)
+
+
+def payed(request):
+
+    order_id = request.GET.get('orderid')
+
+    order = Order.objects.get(pk=order_id)
+
+    order.o_status = ORDER_STATUS_NOT_SEND
+
+    order.save()
+
+    data = {
+        'status':200,
+        'msg':'payed success',
+    }
+
+    return JsonResponse(data)

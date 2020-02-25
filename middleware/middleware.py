@@ -15,6 +15,7 @@ REQUIRE_LOGIN_JSON = [
 REQUIRE_LOGIN = [
     '/axf/cart/',
     '/axf/orderdetail/',
+    '/axf/orderlistnotpay/',
 ]
 
 class LoginMiddleware(MiddlewareMixin):
